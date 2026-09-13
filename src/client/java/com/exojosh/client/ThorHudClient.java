@@ -1,16 +1,17 @@
 package com.exojosh.client;
 
 //import com.mojang.brigadier.CommandDispatcher;
+import com.exojosh.Aynthor_secondscreen_v1_21;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import java.net.Socket;
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -131,14 +132,27 @@ public class ThorHudClient implements ClientModInitializer {
         HUD_SERVER.start();
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
+
+        // Icon rendering can't run from END_CLIENT_TICK any more -- confirmed
+        // against decompiled 26.2, not recollection. Vanilla's own item-icon
+        // path (GuiItemAtlas, which ItemIconRenderer mirrors) only ever runs
+        // from inside an active per-frame GUI render pass; called from tick
+        // time instead, the exact same draw sequence completes with no
+        // exception but produces a fully blank texture, because the render
+        // dispatcher's per-frame state isn't live outside that pass. A HUD
+        // element is the nearest hook that's guaranteed to run every frame in
+        // that context, so this one draws nothing and exists purely to give
+        // drainIconQueue a valid per-frame call site.
+        HudElementRegistry.addLast(Aynthor_secondscreen_v1_21.id("icon_render_driver"),
+                (context, tickCounter) -> drainIconQueue(Minecraft.getInstance()));
     }
 
-    private void onClientTick(MinecraftClient client) {
+    private void onClientTick(Minecraft client) {
         // Release anything simulated-pressed on the previous tick before
         // considering new commands, so a press always lasts exactly one tick.
         CommandDispatcher.tick();
 
-        PlayerEntity player = client.player;
+        Player player = client.player;
         if (player == null) {
             onLeftWorld();
             return;
@@ -150,13 +164,13 @@ public class ThorHudClient implements ClientModInitializer {
                 player.getHealth(),
                 player.getMaxHealth(),
                 player.getAbsorptionAmount(),
-                player.getArmor(),
-                player.getHungerManager().getFoodLevel(),
+                player.getArmorValue(),
+                player.getFoodData().getFoodLevel(),
                 player.experienceLevel,
                 player.experienceProgress,
                 player.getInventory().getSelectedSlot(),
-                player.getAir(),
-                player.getMaxAir(),
+                player.getAirSupply(),
+                player.getMaxAirSupply(),
                 HudState.gameModeOf(client),
                 HudState.heartTypeOf(player),
                 HudState.isHardcore(player),
@@ -192,7 +206,6 @@ public class ThorHudClient implements ClientModInitializer {
         }
 
         pushBundleToNewClients();
-        drainIconQueue(client);
         maybeBroadcastMap(client);
 
         // Cheap when nothing has moved -- it rebuilds the state and compares,
@@ -241,7 +254,7 @@ public class ThorHudClient implements ClientModInitializer {
      * every few seconds and the message would otherwise fill the chat. Reset
      * when the bind succeeds, so a conflict that recurs is reported again.
      */
-    private void warnAboutBindFailureOnce(MinecraftClient client) {
+    private void warnAboutBindFailureOnce(Minecraft client) {
         String failure = HUD_SERVER.bindFailure();
         if (failure == null) {
             warnedAboutBindFailure = false;
@@ -250,12 +263,12 @@ public class ThorHudClient implements ClientModInitializer {
         if (warnedAboutBindFailure) return;
         warnedAboutBindFailure = true;
 
-        if (client.inGameHud == null) return;
-        client.inGameHud.getChatHud().addMessage(Text.literal(
+        if (client.gui == null) return;
+        client.gui.hud.getChat().addClientSystemMessage(Component.literal(
                         "[Thor HUD] Port 48291 is in use, so the second screen can't connect. "
                                 + "A leftover 'adb reverse tcp:48291 tcp:48291' is the usual cause. "
                                 + "Clear it and this will reconnect on its own.")
-                .formatted(Formatting.RED));
+                .withStyle(ChatFormatting.RED));
     }
 
     /**
@@ -294,7 +307,7 @@ public class ThorHudClient implements ClientModInitializer {
      * thing in the tick loop, and on a handheld there's no reason to pay for
      * it when the second screen isn't watching.
      */
-    private void maybeBroadcastMap(MinecraftClient client) {
+    private void maybeBroadcastMap(Minecraft client) {
         if (!HUD_SERVER.hasClients()) {
             // Reset so a freshly-connected app gets a tile on its first tick
             // rather than waiting out the remainder of an interval.
@@ -367,7 +380,7 @@ public class ThorHudClient implements ClientModInitializer {
         }
     }
 
-    private void drainIconQueue(MinecraftClient client) {
+    private void drainIconQueue(Minecraft client) {
         for (int i = 0; i < MAX_ICON_RENDERS_PER_TICK; i++) {
             String itemId = iconRequestQueue.poll();
             if (itemId == null) return;
@@ -383,7 +396,7 @@ public class ThorHudClient implements ClientModInitializer {
      * reply that's never coming -- previously a failed resolve just silently
      * dropped the request, which is what made icon delivery look flaky.
      */
-    private void renderAndSendIcon(MinecraftClient client, String itemId) {
+    private void renderAndSendIcon(Minecraft client, String itemId) {
         ItemStack stack = resolveStack(client, itemId);
         if (stack == null || stack.isEmpty()) {
             inFlightIcons.remove(itemId);
@@ -414,20 +427,20 @@ public class ThorHudClient implements ClientModInitializer {
      * what they're really holding. Falls back to a plain default stack for
      * anything not currently in the inventory.
      */
-    private ItemStack resolveStack(MinecraftClient client, String itemId) {
+    private ItemStack resolveStack(Minecraft client, String itemId) {
         Identifier id = Identifier.tryParse(itemId);
         if (id == null) return null;
 
-        PlayerEntity player = client.player;
+        Player player = client.player;
         if (player != null) {
-            for (int slot = 0; slot < player.getInventory().size(); slot++) {
-                ItemStack candidate = player.getInventory().getStack(slot);
-                if (!candidate.isEmpty() && Registries.ITEM.getId(candidate.getItem()).equals(id)) {
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                ItemStack candidate = player.getInventory().getItem(slot);
+                if (!candidate.isEmpty() && BuiltInRegistries.ITEM.getKey(candidate.getItem()).equals(id)) {
                     return candidate;
                 }
             }
         }
 
-        return Registries.ITEM.getOptionalValue(id).map(ItemStack::new).orElse(null);
+        return BuiltInRegistries.ITEM.getOptional(id).map(ItemStack::new).orElse(null);
     }
 }

@@ -45,9 +45,9 @@ pack applies to the second screen too**, with nothing to copy anywhere.
   presentation-category display.
 - **[Zalith Launcher 2](https://github.com/ZalithLauncher/ZalithLauncher2)** (or
   another PojavLauncher-based launcher).
-- **Minecraft 1.21.11**
-- **Fabric Loader 0.19.3** or newer
-- **[Fabric API](https://modrinth.com/mod/fabric-api)** for 1.21.11 — this mod
+- **Minecraft 26.2**
+- **Fabric Loader 0.19.5** or newer
+- **[Fabric API](https://modrinth.com/mod/fabric-api)** for 26.2 — this mod
   will not load without it.
 
 ## Install
@@ -56,10 +56,10 @@ pack applies to the second screen too**, with nothing to copy anywhere.
 
 1. Download **`aynthor_secondscreen_v1_21-1.0.0.jar`** from
    [Releases](https://github.com/exojosh/AynThorSecondScreen/releases), and
-   **Fabric API** for 1.21.11 from
-   [Modrinth](https://modrinth.com/mod/fabric-api/versions?g=1.21.11).
-2. In ZL2, create or select a version: pick **1.21.11**, then add
-   **Fabric 0.19.3**.
+   **Fabric API** for 26.2 from
+   [Modrinth](https://modrinth.com/mod/fabric-api/versions?g=26.2).
+2. In ZL2, create or select a version: pick **26.2**, then add
+   **Fabric 0.19.5**.
 3. Open that version's **gear icon** → **Mods**.
 4. Tap **+ / Import**, and add the **Fabric API** jar.
 5. Tap **+ / Import** again, and add
@@ -109,7 +109,7 @@ restarted under it.
 
 ## Building from source
 
-Requires **JDK 21**.
+Requires **JDK 25**.
 
 ```
 ./gradlew build          # -> build/libs/aynthor_secondscreen_v1_21-1.0.0.jar

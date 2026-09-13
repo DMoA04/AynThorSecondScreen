@@ -2,10 +2,12 @@
 
 **Target device:** AYN Thor (dual-screen Android handheld)
 **Launcher:** Zalith Launcher 2 (PojavLauncher-based)
-**Minecraft:** 1.21.11, Fabric Loader 0.19.3, Fabric API 0.141.5+1.21.11, Yarn mappings 1.21.11+build.6
-**Java:** JDK 21 (mod side)
+**Minecraft:** 26.2, Fabric Loader 0.19.5, Fabric API 0.160.0+26.2. No mappings dependency — Minecraft has shipped unobfuscated with Mojang's own names baked in since 26.1, so Yarn no longer exists for this or any later version (see `CLAUDE.md`'s "Mappings" note). This doc originally described 1.21.11/Yarn; class/method names below that predate the 26.2 port may still use the old Yarn spelling and should be re-verified against source, not trusted verbatim.
+**Java:** JDK 25 (mod side)
 
 ---
+
+> **This document is a snapshot from early in development and is not kept current** (see both repos' `CLAUDE.md` files, which explicitly warn about this). Section 4 ("What's currently working") and section 5 ("Known bugs") below predate the 1.21.11 baseline this mod later shipped on, let alone the 26.2 port — most of what §5 lists as unresolved (the `ItemIconRenderer` rewrite, package naming, Yarn-mapping guesses) was finished and verified well before 26.2. Treat this file for protocol/architecture background only; for current status, read `CLAUDE.md` in each repo.
 
 ## 1. Architecture overview
 
